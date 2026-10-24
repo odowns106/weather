@@ -145,7 +145,14 @@
       (e) => msg(e.code === 1 ? 'Location permission was denied. Allow it in your browser settings.' : 'Couldn\'t get your location.'),
       { timeout: 15000 });
   };
-  $('refresh').onclick = () => load(true);
+  $('refresh').onclick = async () => {
+    const b = $('refresh');
+    if (b.classList.contains('busy')) return;
+    b.classList.add('busy');
+    $('note').textContent = 'Updating…';
+    await Promise.all([load(true), new Promise((r) => setTimeout(r, 700))]);
+    b.classList.remove('busy');
+  };
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load(false); });
 
   load(false);
