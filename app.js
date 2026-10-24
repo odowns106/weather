@@ -128,7 +128,9 @@
   $('place').onclick = () => { $('q').value = ''; $('results').innerHTML = ''; $('searchDialog').showModal(); };
   $('cancel').onclick = () => $('searchDialog').close();
   $('here').onclick = () => {
-    if (!navigator.geolocation) return;
+    const msg = (t) => { $('results').innerHTML = `<p class="muted">${t}</p>`; };
+    if (!navigator.geolocation || !window.isSecureContext) return msg('Location needs the https version of the app (odowns106.github.io/weather).');
+    msg('Finding your location…');
     navigator.geolocation.getCurrentPosition(
       async (p) => {
         const lat = +p.coords.latitude.toFixed(3), lon = +p.coords.longitude.toFixed(3);
@@ -140,7 +142,8 @@
         } catch {}
         setLoc({ name, lat, lon });
       },
-      () => { $('results').innerHTML = '<p class="muted">Couldn\'t get your location.</p>'; });
+      (e) => msg(e.code === 1 ? 'Location permission was denied. Allow it in your browser settings.' : 'Couldn\'t get your location.'),
+      { timeout: 15000 });
   };
   $('refresh').onclick = () => load(true);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load(false); });
