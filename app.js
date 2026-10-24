@@ -126,6 +126,7 @@
   });
   $('searchForm').addEventListener('submit', (e) => e.preventDefault());
   $('place').onclick = () => { $('q').value = ''; $('results').innerHTML = ''; $('searchDialog').showModal(); };
+  $('cancel').onclick = () => $('searchDialog').close();
   $('here').onclick = () => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
