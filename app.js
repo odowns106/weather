@@ -98,6 +98,13 @@
   }
 
   // ---- location ------------------------------------------------------------
+  async function placeName(lat, lon) {
+    try {
+      const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=en&latitude=${lat}&longitude=${lon}`);
+      const g = await r.json();
+      return g.locality || g.city || g.principalSubdivision || 'My location';
+    } catch { return 'My location'; }
+  }
   function setLoc(l) {
     loc = l;
     try { localStorage.setItem('wx-loc', JSON.stringify(l)); } catch {}
@@ -134,12 +141,7 @@
     navigator.geolocation.getCurrentPosition(
       async (p) => {
         const lat = +p.coords.latitude.toFixed(3), lon = +p.coords.longitude.toFixed(3);
-        let name = 'My location';
-        try {
-          const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=en&latitude=${lat}&longitude=${lon}`);
-          const g = await r.json();
-          name = g.locality || g.city || g.principalSubdivision || name;
-        } catch {}
+        const name = await placeName(lat, lon);
         setLoc({ name, lat, lon });
       },
       (e) => msg(e.code === 1 ? 'Location permission was denied. Allow it in your browser settings.' : 'Couldn\'t get your location.'),
@@ -156,5 +158,12 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load(false); });
 
   load(false);
+  // a location saved earlier as "My location" gets its real name now
+  if (loc.name === 'My location') placeName(loc.lat, loc.lon).then((name) => {
+    if (name === 'My location') return;
+    loc = { ...loc, name };
+    try { localStorage.setItem('wx-loc', JSON.stringify(loc)); } catch {}
+    $('placeName').textContent = name;
+  });
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js');
 })();
