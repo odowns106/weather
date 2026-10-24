@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Weather</title>
+  <meta name="theme-color" content="#2c6fb7">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <button id="place" class="place" aria-label="Change location"><span id="placeName">…</span> <small>▾</small></button>
+    <button id="refresh" title="Refresh" aria-label="Refresh">↻</button>
+  </header>
+
+  <dialog id="searchDialog">
+    <form method="dialog" id="searchForm">
+      <h2>Change location</h2>
+      <input id="q" type="search" placeholder="Search for a town or city" autocomplete="off">
+      <div id="results"></div>
+      <div class="row">
+        <button value="cancel" class="plain">Cancel</button>
+        <button type="button" id="here" class="plain">Use my location</button>
+      </div>
+    </form>
+  </dialog>
+
+  <main id="cards"></main>
+  <p id="note" class="muted"></p>
+
+  <script src="app.js"></script>
+</body>
+</html>
