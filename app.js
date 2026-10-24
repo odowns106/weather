@@ -129,7 +129,16 @@
   $('here').onclick = () => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
-      (p) => setLoc({ name: 'My location', lat: +p.coords.latitude.toFixed(3), lon: +p.coords.longitude.toFixed(3) }),
+      async (p) => {
+        const lat = +p.coords.latitude.toFixed(3), lon = +p.coords.longitude.toFixed(3);
+        let name = 'My location';
+        try {
+          const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=en&latitude=${lat}&longitude=${lon}`);
+          const g = await r.json();
+          name = g.locality || g.city || g.principalSubdivision || name;
+        } catch {}
+        setLoc({ name, lat, lon });
+      },
       () => { $('results').innerHTML = '<p class="muted">Couldn\'t get your location.</p>'; });
   };
   $('refresh').onclick = () => load(true);
