@@ -77,6 +77,7 @@
     }).join('');
 
     $('cards').innerHTML = `
+      <div id="alerts" class="alerts"></div>
       <section class="card now">
         <div class="icon">${c.is_day || c.weather_code > 2 ? icon : '🌙'}</div>
         <div><div class="temp">${deg(c.temperature_2m)}</div>
@@ -94,7 +95,38 @@
         <div><b>${hhmm(d.sunrise[0])}</b><span>Sunrise</span></div>
         <div><b>${hhmm(d.sunset[0])}</b><span>Sunset</span></div>
       </div></section>`;
+    showWarnings();
     $('note').textContent = note || 'Updated ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' · Open-Meteo';
+  }
+
+  // ---- warnings (Met Office, via warnings.json refreshed by a GitHub Action) --
+  const inPoly = (lat, lon, poly) => {
+    let ins = false;
+    for (let i = 0, k = poly.length - 1; i < poly.length; k = i++) {
+      const [y1, x1] = poly[i], [y2, x2] = poly[k];
+      if ((y1 > lat) !== (y2 > lat) && lon < ((x2 - x1) * (lat - y1)) / (y2 - y1) + x1) ins = !ins;
+    }
+    return ins;
+  };
+  const RANK = { red: 3, amber: 2, yellow: 1 };
+  const when = (iso) => new Date(iso).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  async function showWarnings() {
+    const el = $('alerts'); if (!el) return;
+    let data;
+    try { const r = await fetch('warnings.json', { cache: 'no-cache' }); if (!r.ok) return; data = await r.json(); } catch { return; }
+    const now = Date.now(), at = loc;
+    const hits = data.warnings
+      .filter((w) => new Date(w.expires) > now && w.areas.some((a) => a.polygons.some((p) => inPoly(at.lat, at.lon, p))))
+      .sort((a, b) => RANK[b.level] - RANK[a.level] || new Date(a.onset) - new Date(b.onset));
+    if (at !== loc) return;
+    el.innerHTML = hits.map((w) => {
+      const live = new Date(w.onset) <= now;
+      return `<details class="warn ${w.level}"><summary><b>${esc(w.event)}</b>
+        <span>${live ? 'In force until ' + when(w.expires) : 'From ' + when(w.onset) + ' to ' + when(w.expires)}</span></summary>
+        <p>${esc(w.headline)}</p><p>${esc(w.description)}</p>
+        ${w.impacts.length ? '<ul>' + w.impacts.map((i) => `<li>${esc(i)}</li>`).join('') + '</ul>' : ''}
+        <p class="muted"><a href="${esc(w.web)}" target="_blank" rel="noopener">Met Office warnings</a> · checked ${when(data.updated)}</p></details>`;
+    }).join('');
   }
 
   // ---- location ------------------------------------------------------------
