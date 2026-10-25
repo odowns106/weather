@@ -17,6 +17,9 @@
     95: ['⛈️', 'Thunderstorm'], 96: ['⛈️', 'Thunderstorm, hail'], 99: ['⛈️', 'Thunderstorm, hail'],
   };
   const wmo = (c) => WMO[c] || ['❓', 'Unknown'];
+  // night-time versions of the sun-based icons
+  const NIGHT = { '☀️': '🌙', '🌤️': '🌙', '⛅': '☁️', '🌦️': '🌧️' };
+  const icon = (c, isDay) => { const i = wmo(c)[0]; return isDay === 0 ? NIGHT[i] || i : i; };
   const deg = (n) => Math.round(n) + '°';
   const compass = (d) => ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(d / 45) % 8];
   const uvLabel = (u) => (u < 3 ? 'Low' : u < 6 ? 'Moderate' : u < 8 ? 'High' : u < 11 ? 'Very high' : 'Extreme');
@@ -26,7 +29,7 @@
 
   async function load(force) {
     $('placeName').textContent = loc.name;
-    const key = 'wx-data-v2';
+    const key = 'wx-data-v3';
     let cached = null;
     try { cached = JSON.parse(localStorage.getItem(key)); } catch {}
     const same = cached && cached.lat === loc.lat && cached.lon === loc.lon;
@@ -34,7 +37,7 @@
     const q = new URLSearchParams({
       latitude: loc.lat, longitude: loc.lon, timezone: 'auto', forecast_days: 7, wind_speed_unit: 'mph',
       current: 'temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m,wind_direction_10m,wind_gusts_10m,relative_humidity_2m,precipitation',
-      hourly: 'temperature_2m,weather_code,precipitation_probability,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
+      hourly: 'temperature_2m,weather_code,precipitation_probability,is_day,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
       daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,uv_index_max,wind_gusts_10m_max,wind_speed_10m_max,wind_direction_10m_dominant',
     });
     try {
@@ -51,7 +54,7 @@
 
   function render(w, note) {
     const c = w.current, d = w.daily, h = w.hourly;
-    const [icon, desc] = wmo(c.weather_code);
+    const desc = wmo(c.weather_code)[1];
     const hhmm = (s) => s.slice(11, 16);
 
     // next 24 hours, starting from the current hour (times are in the location's timezone)
@@ -59,7 +62,7 @@
     const hours = Array.from({ length: 8 }, (_, k) => k * 3).map((k) => {
       const i = start + k, t = h.time[i], p = Math.max(...h.precipitation_probability.slice(i, i + 3));
       return `<div class="hour"><div class="t">${k === 0 ? 'Now' : hhmm(t)}</div>
-        <div class="i">${wmo(h.weather_code[i])[0]}</div><div>${deg(h.temperature_2m[i])}</div>
+        <div class="i">${icon(h.weather_code[i], h.is_day[i])}</div><div>${deg(h.temperature_2m[i])}</div>
         <div class="p">${p >= 20 ? p + '%' : ''}</div>
         <div class="w"><span style="display:inline-block;transform:rotate(${h.wind_direction_10m[i] + 180}deg)">↑</span> ${Math.round(h.wind_speed_10m[i])}</div>
         <div class="g">gust ${Math.round(Math.max(...h.wind_gusts_10m.slice(i, i + 3)))}</div></div>`;
@@ -79,7 +82,7 @@
     $('cards').innerHTML = `
       <div id="alerts" class="alerts"></div>
       <section class="card now">
-        <div class="icon">${c.is_day || c.weather_code > 2 ? icon : '🌙'}</div>
+        <div class="icon">${icon(c.weather_code, c.is_day)}</div>
         <div><div class="temp">${deg(c.temperature_2m)}</div>
         <div class="desc">${desc}</div>
         <div class="sub">Feels like ${deg(c.apparent_temperature)} · H ${deg(d.temperature_2m_max[0])} L ${deg(d.temperature_2m_min[0])}</div>
