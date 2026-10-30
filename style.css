@@ -90,3 +90,11 @@ dialog input { width: 100%; font: inherit; padding: 12px; font-size: 17px; borde
 }
 .alerts:empty { display: none; }
 .warn:last-child { margin-bottom: 0; }
+
+.card svg { width: 100%; height: auto; display: block; }
+.card svg .g { stroke: var(--line); stroke-width: 1; }
+.card svg .a { fill: var(--muted); font-size: 11px; }
+.card svg path { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.card svg .temp { stroke: var(--range); }
+.card svg .pres { stroke: var(--rain); }
+.card h2.gap { margin-top: 18px; }

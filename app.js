@@ -29,15 +29,15 @@
 
   async function load(force) {
     $('placeName').textContent = loc.name;
-    const key = 'wx-data-v3';
+    const key = 'wx-data-v4';
     let cached = null;
     try { cached = JSON.parse(localStorage.getItem(key)); } catch {}
     const same = cached && cached.lat === loc.lat && cached.lon === loc.lon;
     if (!force && same && Date.now() - cached.at < 15 * 60e3) return render(cached.json, '');
     const q = new URLSearchParams({
       latitude: loc.lat, longitude: loc.lon, timezone: 'auto', forecast_days: 7, wind_speed_unit: 'mph',
-      current: 'temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m,wind_direction_10m,wind_gusts_10m,relative_humidity_2m,precipitation',
-      hourly: 'temperature_2m,weather_code,precipitation_probability,is_day,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
+      current: 'temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m,wind_direction_10m,wind_gusts_10m,relative_humidity_2m,pressure_msl,precipitation',
+      hourly: 'temperature_2m,weather_code,precipitation_probability,pressure_msl,is_day,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
       daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,uv_index_max,wind_gusts_10m_max,wind_speed_10m_max,wind_direction_10m_dominant',
     });
     try {
@@ -50,6 +50,23 @@
       if (same) render(cached.json, 'Offline: showing the last saved forecast.');
       else { $('cards').innerHTML = ''; $('note').textContent = 'No forecast available. Check your connection and tap ↻.'; }
     }
+  }
+
+  // line chart over the forecast hours; midnight gridlines labelled with the day
+  function chart(times, vals, cls, unit, minSpan) {
+    const W = 340, H = 130, L = 34, R = 6, T = 8, B = 20;
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    if (hi - lo < minSpan) { const m = (hi + lo) / 2; lo = m - minSpan / 2; hi = m + minSpan / 2; }
+    const x = (i) => L + (i / (vals.length - 1)) * (W - L - R), y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+    const line = vals.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
+    const grid = times.map((t, i) => t.slice(11, 13) === '00' ? i : -1).filter((i) => i > 0).map((i) => {
+      const day = new Date(times[i].slice(0, 10) + 'T12:00').toLocaleDateString('en-GB', { weekday: 'short' });
+      return `<line class="g" x1="${x(i)}" x2="${x(i)}" y1="${T}" y2="${H - B}"/><text class="a" x="${x(i + 12)}" y="${H - 5}" text-anchor="middle">${day}</text>`;
+    }).join('');
+    const tick = (v) => `<text class="a" x="${L - 4}" y="${y(v) + 4}" text-anchor="end">${Math.round(v)}</text>`;
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${unit} over the next days">
+      <line class="g" x1="${L}" x2="${W - R}" y1="${y(hi)}" y2="${y(hi)}"/><line class="g" x1="${L}" x2="${W - R}" y1="${y(lo)}" y2="${y(lo)}"/>
+      ${grid}${tick(hi)}${tick(lo)}<path class="${cls}" d="${line}"/></svg>`;
   }
 
   function render(w, note) {
@@ -68,6 +85,9 @@
         <div class="g">gust ${Math.round(Math.max(...h.wind_gusts_10m.slice(i, i + 3)))}</div></div>`;
     }).join('');
 
+    const ct = h.time.slice(start), cT = h.temperature_2m.slice(start), cP = h.pressure_msl.slice(start);
+    const p3 = h.pressure_msl[Math.max(0, start - 3)], dp = c.pressure_msl - p3;
+    const trend = Math.abs(dp) < 1 ? 'steady' : dp > 0 ? 'rising' : 'falling';
     const lo = Math.min(...d.temperature_2m_min), hi = Math.max(...d.temperature_2m_max), span = hi - lo || 1;
     const days = d.time.map((t, i) => {
       const name = i === 0 ? 'Today' : new Date(t + 'T12:00').toLocaleDateString('en-GB', { weekday: 'short' });
@@ -86,9 +106,12 @@
         <div><div class="temp">${deg(c.temperature_2m)}</div>
         <div class="desc">${desc}</div>
         <div class="sub">Feels like ${deg(c.apparent_temperature)} · H ${deg(d.temperature_2m_max[0])} L ${deg(d.temperature_2m_min[0])}</div>
-        <div class="sub">Wind <span style="display:inline-block;transform:rotate(${c.wind_direction_10m + 180}deg)">↑</span> ${Math.round(c.wind_speed_10m)} mph ${compass(c.wind_direction_10m)} · gusts ${Math.round(c.wind_gusts_10m)}</div></div>
+        <div class="sub">Wind <span style="display:inline-block;transform:rotate(${c.wind_direction_10m + 180}deg)">↑</span> ${Math.round(c.wind_speed_10m)} mph ${compass(c.wind_direction_10m)} · gusts ${Math.round(c.wind_gusts_10m)}</div>
+        <div class="sub">Pressure ${Math.round(c.pressure_msl)} hPa · ${trend}</div></div>
       </section>
       <section class="card"><h2>Next 24 hours <span class="unit">· wind and gusts mph</span></h2><div class="hours">${hours}</div></section>
+      <section class="card"><h2>Temperature <span class="unit">· °C</span></h2>${chart(ct, cT, 'temp', '°C', 6)}
+        <h2 class="gap">Pressure <span class="unit">· hPa</span></h2>${chart(ct, cP, 'pres', 'hPa', 20)}</section>
       <section class="card"><h2>7-day forecast</h2>${days}</section>
       <section class="card"><h2>Details</h2><div class="grid">
         <div><b>${Math.round(c.wind_speed_10m)} mph ${compass(c.wind_direction_10m)}</b><span>Wind (gusts to ${Math.round(d.wind_gusts_10m_max[0])})</span></div>
