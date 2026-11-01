@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Fetch UK Met Office warnings (via MeteoAlarm) and write a compact warnings.json for the app."""
-import json, re, sys, urllib.request
+import json, re, sys, time, urllib.request
 from datetime import datetime, timezone
 
 FEED = 'https://feeds.meteoalarm.org/api/v1/warnings/feeds-united-kingdom'
@@ -16,7 +16,15 @@ def param(info, name):
 
 def main(out):
     req = urllib.request.Request(FEED, headers={'User-Agent': 'weather-app-warnings/1.0'})
-    data = json.load(urllib.request.urlopen(req, timeout=30))
+    for attempt in range(4):  # the feed occasionally times out; retry before failing the run
+        try:
+            data = json.load(urllib.request.urlopen(req, timeout=30))
+            break
+        except Exception as e:
+            print(f'attempt {attempt + 1} failed: {e}', file=sys.stderr)
+            if attempt == 3:
+                raise
+            time.sleep(10 * (attempt + 1))
     warnings = []
     for w in data.get('warnings', []):
         a = w['alert']
